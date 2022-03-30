@@ -1,7 +1,8 @@
 #include <iostream>
-#include <sstream>
 #include <string>
 #include <vector>
+#include <random>
+#include <algorithm>
 
 using namespace std;
 
@@ -67,6 +68,10 @@ class Player {
             bank = playerBank;
         }
 
+        double getBank () {
+            return bank;
+        }
+
         void decreaseBank(double bankDelta) {
             bank -= bankDelta;
         }
@@ -94,12 +99,12 @@ class Player {
         }
 
         Card subtractCard () {
-            Card returnCard = cards[-1];
+            Card returnCard = cards.back();
             cards.pop_back();
             return returnCard;
         }
 
-        int playerCardValues () {
+        int cardsSumValue () {
             int cardValues = 0;
             int amountOfAces = 0;
 
@@ -133,23 +138,136 @@ int main()
     string suits[] = {"Hearts", "Diamonds", "Spades", "Clubs"};
     int values[] = {2,3,4,5,6,7,8,9,10,10,10,10,11};
 
-    Card deck[52];
+    std::random_device rd;
+    std::default_random_engine rng(rd());
 
+    vector<Card> deck;
     for (int i = 0; i < 52; i++) {
-        deck[i] = Card(name[i/4], suits[i%4], values[i/4]);
+        deck.push_back(Card(name[i/4], suits[i%4], values[i/4]));
         deck[i].printCard();
     }
-
-    double pot;
+    
+    bool playOn = true; 
+    int roundCounter = 1;
+    double pot = 0;
+    double betAmount = 0;
+    string userInput = "";
 
     Player player("Player1", 100);
     Player dealer("Dealer", 500);
 
-    cout << "Player has " << player.amountOfCards() << " cards" << endl;
-    player.addCard(deck[0]);
-    player.addCard(deck[50]);
-    player.addCard(deck[51]);
-    player.printCards();
-    cout << "Player is at " <<  player.playerCardValues() << endl;
+    while (playOn) {
+
+        cout << endl;
+        cout << "!!! Round " << roundCounter << " !!!" << endl;
+        cout << "You have $" << player.getBank() << " and the dealer has $" << dealer.getBank() << endl; 
+
+        do {
+            cout << "Please select a bet amount" << " from $0 to $" << min(player.getBank(), dealer.getBank()) << endl;
+            cin >> betAmount;
+        } while (betAmount < 0 || betAmount > min(player.getBank(), dealer.getBank()));
+           
+        player.decreaseBank(betAmount);
+        dealer.decreaseBank(betAmount);
+        pot = betAmount * 2;
+        cout << endl;
+
+        std::shuffle(deck.begin(), deck.end(), rng);
+
+        player.addCard(deck.back());
+        deck.pop_back();
+
+        player.addCard(deck.back());
+        deck.pop_back();
+
+        player.printCards();
+        cout << "Player is at " <<  player.cardsSumValue() << endl;
+
+        
+        do {
+
+            do {
+                cout << "Hit? y/n" << endl;
+                cin >> userInput; 
+            } while (userInput != "y" && userInput != "n");
+
+            if (userInput == "y") {
+                player.addCard(deck.back());
+                deck.pop_back();
+                cout << endl;
+                player.printCards();
+                cout << "Player is at " <<  player.cardsSumValue() << endl;
+            }
+
+        } while (userInput == "y" && player.cardsSumValue() < 20);
+        
+        dealer.addCard(deck.back());
+        deck.pop_back();
+
+        do {
+            dealer.addCard(deck.back());
+            deck.pop_back();
+        } while (dealer.cardsSumValue() < player.cardsSumValue() && dealer.cardsSumValue() < 22 && player.cardsSumValue() < 22);
+
+        cout << endl;
+        dealer.printCards();
+        cout << endl;
+
+        cout << "Dealer is at " <<  dealer.cardsSumValue() << endl;
+
+        if (dealer.cardsSumValue() > 21 && player.cardsSumValue() < 22) {
+            cout << "Player won." << endl;
+            player.increaseBank(pot);
+            pot == 0;
+        } 
+        else if (player.cardsSumValue() > 21 && dealer.cardsSumValue() < 22) {
+            cout << "Dealer won." << endl;
+            dealer.increaseBank(pot);
+            pot == 0;
+        } 
+        else if (player.cardsSumValue() > dealer.cardsSumValue())
+        {
+            cout << "Player won." << endl;
+            player.increaseBank(pot);
+            pot == 0;
+        }
+        else if (player.cardsSumValue() < dealer.cardsSumValue())
+        {
+            cout << "Dealer won." << endl;
+            dealer.increaseBank(pot);
+            pot == 0;
+        }
+        else if (dealer.cardsSumValue() == player.cardsSumValue())
+        {
+            cout << "Draw." << endl;
+            player.increaseBank(pot/2);
+            dealer.increaseBank(pot/2);
+            pot == 0;
+        }
+
+        while (player.cardsSumValue() > 0) {
+            deck.push_back(player.subtractCard());
+        }
+
+        while (dealer.cardsSumValue() > 0) {
+            deck.push_back(dealer.subtractCard());
+        }
+
+        do {    
+            cout << "Play again?" << endl;
+            cin >> userInput;
+        } while (userInput != "y" && userInput != "n");
+
+
+        if (userInput == "y") {
+            playOn = true;
+            roundCounter ++;
+        }
+        else {
+            playOn = false;
+        }
+    }
     return 0;
+
+
 }
